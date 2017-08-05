@@ -50,6 +50,7 @@ public class DatabaseHandler extends SQLiteOpenHelper {
 
         // Create tables again
         onCreate(db);
+
     }
     // Adding new CacheRequests
     public void addCacheRequest(CacheRequest rq) {
