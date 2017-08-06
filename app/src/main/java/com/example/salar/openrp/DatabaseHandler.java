@@ -38,7 +38,7 @@ public class DatabaseHandler extends SQLiteOpenHelper {
     @Override
     public void onCreate(SQLiteDatabase db) {
         String CREATE_CONTACTS_TABLE = "CREATE TABLE " + TABLE_CONTACTS + "("
-                + KEY_COUNTER + " INTEGER PRIMARY KEY," + KEY_PEER_ID + " INTEGER,"
+                + KEY_COUNTER + " INTEGER PRIMARY KEY," + KEY_PEER_ID + " TEXT,"
                 + KEY_TIME + " TIMESTAMP," + KEY_VALUE + " FLOAT"+ ")";
         db.execSQL(CREATE_CONTACTS_TABLE);
     }
@@ -50,17 +50,16 @@ public class DatabaseHandler extends SQLiteOpenHelper {
 
         // Create tables again
         onCreate(db);
-
     }
     // Adding new CacheRequests
     public void addCacheRequest(CacheRequest rq) {
         SQLiteDatabase db = this.getWritableDatabase();
 
         ContentValues values = new ContentValues();
-        //values.put(KEY_COUNTER, 1);
-        values.put(KEY_PEER_ID, rq.getPeer_id()); // CacheRequst Peer ID
-        values.put(KEY_TIME, rq.getTime().toString()); // CacheRequst Time
-        values.put(KEY_VALUE, rq.getValue()); // CacheRequst Value
+
+        values.put(KEY_PEER_ID, rq.getPeer_id()); // CacheRequest Peer ID
+        values.put(KEY_TIME, rq.getTime().toString()); // CacheRequest Time
+        values.put(KEY_VALUE, rq.getValue()); // CacheRequest Value
 
         // Inserting Row
         db.insert(TABLE_CONTACTS, null, values);
@@ -77,7 +76,7 @@ public class DatabaseHandler extends SQLiteOpenHelper {
         if (cursor != null)
             cursor.moveToFirst();
 
-        CacheRequest cacheRequest = new CacheRequest(Integer.parseInt(cursor.getString(1)),
+        CacheRequest cacheRequest = new CacheRequest(cursor.getString(1),
                 Timestamp.valueOf(cursor.getString(2)), Float.parseFloat(cursor.getString(3)));
         // return cacheRequest
         return cacheRequest;
@@ -96,7 +95,7 @@ public class DatabaseHandler extends SQLiteOpenHelper {
         if (cursor.moveToFirst()) {
             do {
                 CacheRequest cacheRequest = new CacheRequest();
-                cacheRequest.setPeer_id(Integer.parseInt(cursor.getString(1)));
+                cacheRequest.setPeer_id(cursor.getString(1));
                 cacheRequest.setTime(Timestamp.valueOf(cursor.getString(2)));
                 cacheRequest.setValue(Float.parseFloat(cursor.getString(3)));
                 // Adding cacheRequest to list

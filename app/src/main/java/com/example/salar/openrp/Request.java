@@ -11,5 +11,12 @@ import com.bluelinelabs.logansquare.annotation.JsonObject;
 public class Request {
 
     @JsonField
-    public String description;
+    public String requestTitle;
+
+    @JsonField
+    public String requestDetail;
+
+    @JsonField
+    public String requestPeerId;
 }
+
