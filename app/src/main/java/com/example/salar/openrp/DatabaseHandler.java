@@ -23,7 +23,7 @@ public class DatabaseHandler extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "OPENRPDatabase";
 
     // Contacts table name
-    private static final String TABLE_CONTACTS = "communicationData";
+    private static final String TABLE_NAME = "communicationData";
 
     // Contacts Table Columns names
     private static final String KEY_COUNTER = "counter";
@@ -37,7 +37,7 @@ public class DatabaseHandler extends SQLiteOpenHelper {
 
     @Override
     public void onCreate(SQLiteDatabase db) {
-        String CREATE_CONTACTS_TABLE = "CREATE TABLE " + TABLE_CONTACTS + "("
+        String CREATE_CONTACTS_TABLE = "CREATE TABLE " + TABLE_NAME + "("
                 + KEY_COUNTER + " INTEGER PRIMARY KEY," + KEY_PEER_ID + " TEXT,"
                 + KEY_TIME + " TIMESTAMP," + KEY_VALUE + " FLOAT"+ ")";
         db.execSQL(CREATE_CONTACTS_TABLE);
@@ -46,7 +46,7 @@ public class DatabaseHandler extends SQLiteOpenHelper {
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
         // Drop older table if existed
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_CONTACTS);
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_NAME);
 
         // Create tables again
         onCreate(db);
@@ -62,7 +62,7 @@ public class DatabaseHandler extends SQLiteOpenHelper {
         values.put(KEY_VALUE, rq.getValue()); // CacheRequest Value
 
         // Inserting Row
-        db.insert(TABLE_CONTACTS, null, values);
+        db.insert(TABLE_NAME, null, values);
         db.close(); // Closing database connection
     }
 
@@ -70,7 +70,7 @@ public class DatabaseHandler extends SQLiteOpenHelper {
     public CacheRequest getCacheRequest(int id) {
         SQLiteDatabase db = this.getReadableDatabase();
 
-        Cursor cursor = db.query(TABLE_CONTACTS, new String[] { KEY_COUNTER,
+        Cursor cursor = db.query(TABLE_NAME, new String[] { KEY_COUNTER,
                         KEY_PEER_ID, KEY_TIME, KEY_VALUE }, KEY_COUNTER + "=?",
                 new String[] { String.valueOf(id) }, null, null, null, null);
         if (cursor != null)
@@ -86,7 +86,7 @@ public class DatabaseHandler extends SQLiteOpenHelper {
     public List<CacheRequest> getAllCacheRequests() {
         List<CacheRequest> cacheRequestList = new ArrayList<CacheRequest>();
         // Select All Query
-        String selectQuery = "SELECT  * FROM " + TABLE_CONTACTS;
+        String selectQuery = "SELECT  * FROM " + TABLE_NAME;
 
         SQLiteDatabase db = this.getWritableDatabase();
         Cursor cursor = db.rawQuery(selectQuery, null);
@@ -109,7 +109,7 @@ public class DatabaseHandler extends SQLiteOpenHelper {
 
     // Getting CacheRequests Count
     public int getCacheRequestsCount() {
-        String countQuery = "SELECT  * FROM " + TABLE_CONTACTS;
+        String countQuery = "SELECT  * FROM " + TABLE_NAME;
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor cursor = db.rawQuery(countQuery, null);
         cursor.close();

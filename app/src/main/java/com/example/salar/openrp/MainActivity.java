@@ -2,12 +2,15 @@ package com.example.salar.openrp;
 
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.Menu;
+
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity{
 
     public Network network;
-    public boolean isHost = true;
+    public boolean isHost = false;
     public DatabaseHandler databaseHandler;
 
     @Override
@@ -34,7 +37,7 @@ public class MainActivity extends AppCompatActivity{
         databaseHandler.addCacheRequest(new CacheRequest(12,new Timestamp(System.currentTimeMillis()), (float) 0.53));
         databaseHandler.addCacheRequest(new CacheRequest(26,new Timestamp(System.currentTimeMillis()+2000), (float) 0.94));
         databaseHandler.addCacheRequest(new CacheRequest(45,new Timestamp(System.currentTimeMillis()+6000), (float) 0.08));
-
+        */
         // Reading all CacheRequests
         Log.d("Reading: ", "Reading all CacheRequest..");
         List<CacheRequest> cacheRequests = databaseHandler.getAllCacheRequests();
@@ -42,11 +45,9 @@ public class MainActivity extends AppCompatActivity{
         for (CacheRequest cn : cacheRequests) {
             String log = "Peer_ID: "+cn.getPeer_id()+" ,Time: " + cn.getTime() + " ,Value: " + cn.getValue();
             // Writing CacheRequest to log
-            Log.d("Data: ", log);
+            Log.d("Data", log);
         }
         ///////////////// DATABASE
-        */
-
     }
 
     @Override

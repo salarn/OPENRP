@@ -18,7 +18,9 @@ import org.json.JSONObject;
 
 import java.io.IOException;
 import java.sql.Timestamp;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 
 /**
  * Created by salar on 8/5/17.
@@ -32,6 +34,7 @@ public class Network implements SalutDataCallback{
     public static final String REJ_SHAKE_REQUEST = "reject_shake_request";
     public static final String TASK_REQUEST = "task_request";
     public static final String ANS_REQUEST = "answer_request";
+    public static final String FINISH_REQUEST = "finish_request";
     public static final String OBJECT_TASK = "here_should_be_an_object";
 
     public SalutDataReceiver dataReceiver;
@@ -39,11 +42,13 @@ public class Network implements SalutDataCallback{
     public Salut network;
     public MainActivity mainActivity;
     public String androidId;
+    public Map<String , String> stateDevices;
 
     public Network(MainActivity activity){
         /*Create a data receiver object that will bind the callback
         with some instantiated object from our app. */
         this.mainActivity = activity;
+        stateDevices = new HashMap<String,String>();
 
        // Toast.makeText(mainActivity.getApplicationContext(),"HELLOOO",Toast.LENGTH_SHORT).show();
         dataReceiver = new SalutDataReceiver(activity, this);
@@ -79,8 +84,8 @@ public class Network implements SalutDataCallback{
             network.startNetworkService(new SalutDeviceCallback() {
                 @Override
                 public void call(SalutDevice salutDevice) {
-                    Log.d(TAG, "Device: " + salutDevice.instanceName + " connected.");
-                    Toast.makeText(mainActivity.getApplicationContext(), "Device: " + salutDevice.instanceName + " connected.", Toast.LENGTH_SHORT).show();
+                    Log.d(TAG, "Device: " + salutDevice.readableName + " connected.");
+                    Toast.makeText(mainActivity.getApplicationContext(), "Device: " + salutDevice.readableName + " connected.", Toast.LENGTH_SHORT).show();
                 }
             });
         }
@@ -98,11 +103,11 @@ public class Network implements SalutDataCallback{
             {
                 @Override
                 public void call() {
-                    Toast.makeText(mainActivity.getApplicationContext(), "Device: " + network.foundDevices.get(0).instanceName + " found.", Toast.LENGTH_SHORT).show();
-                    Log.d(TAG, "Device: " + network.foundDevices.get(0).instanceName + " found.");
+                    Toast.makeText(mainActivity.getApplicationContext(), "Device: " + network.foundDevices.get(0).readableName + " found.", Toast.LENGTH_SHORT).show();
+                    Log.d(TAG, "Device: " + network.foundDevices.get(0).readableName + " found.");
                     connectingToDevice(network.foundDevices.get(0));
                 }
-            }, true);
+            }, false);
 
         }
         else
@@ -136,26 +141,42 @@ public class Network implements SalutDataCallback{
         Log.d(TAG, "A request received.");
         try {
             Request messageReceived = LoganSquare.parse((String) data,Request.class);
-            Toast.makeText(mainActivity.getApplicationContext(), "Request Recieved: "+ messageReceived.requestTitle,
+            Toast.makeText(mainActivity.getApplicationContext(), "Request Received: "+ messageReceived.requestTitle,
                     Toast.LENGTH_SHORT).show();
             Log.d(TAG , "Parse Message title: "+ messageReceived.requestTitle );
             Log.d(TAG , "Parse Message peer id: "+ messageReceived.requestPeerId);
             Log.d(TAG , "Parse Message detail: "+ messageReceived.requestDetail);
             switch (messageReceived.requestTitle){
-                case SHAKE_REQUEST:
+                case SHAKE_REQUEST: // As Host
                     answerToShake(messageReceived);
                     break;
-                case ACC_SHAKE_REQUEST:
-                    sendingTaskRequest(messageReceived);
+                case ACC_SHAKE_REQUEST: // As Client
+                    if(stateDevices.containsKey(messageReceived.requestPeerId) == true &&
+                            stateDevices.get(messageReceived.requestPeerId).equals(SHAKE_REQUEST)) {
+                        changeState(messageReceived.requestPeerId,TASK_REQUEST);
+                        sendingTaskRequest(messageReceived);
+                    }
                     break;
-                case REJ_SHAKE_REQUEST:
-                    evaluateReputationRejectShakeRequest(messageReceived);
+                case REJ_SHAKE_REQUEST: // As Client
+                    if(stateDevices.containsKey(messageReceived.requestPeerId) == true &&
+                            stateDevices.get(messageReceived.requestPeerId).equals(SHAKE_REQUEST)) {
+                        changeState(messageReceived.requestPeerId,FINISH_REQUEST);
+                        evaluateReputationRejectShakeRequest(messageReceived);
+                    }
                     break;
-                case TASK_REQUEST:
-                    processTaskRequest(messageReceived);
+                case TASK_REQUEST: // As Host
+                    if(stateDevices.containsKey(messageReceived.requestPeerId) == true &&
+                            stateDevices.get(messageReceived.requestPeerId).equals(ACC_SHAKE_REQUEST)) {
+                        changeState(messageReceived.requestPeerId,FINISH_REQUEST);
+                        processTaskRequest(messageReceived);
+                    }
                     break;
-                case ANS_REQUEST:
-                    measureAnswerRequest(messageReceived);
+                case ANS_REQUEST: // As Client
+                    if(stateDevices.containsKey(messageReceived.requestPeerId) == true &&
+                            stateDevices.get(messageReceived.requestPeerId).equals(TASK_REQUEST)) {
+                        changeState(messageReceived.requestPeerId,FINISH_REQUEST);
+                        measureAnswerRequest(messageReceived);
+                    }
                     break;
             }
         } catch (IOException e) {
@@ -164,6 +185,12 @@ public class Network implements SalutDataCallback{
         //Toast.makeText(mainActivity.getApplicationContext(), "Message Recieved: "+ data, Toast.LENGTH_SHORT).show();
         //Log.d(TAG, "Message Received: "+ data);
 
+    }
+
+    public void changeState(String deviceId, String to){
+        if(stateDevices.containsKey(deviceId))
+            stateDevices.remove(deviceId);
+        stateDevices.put(deviceId,to);
     }
 
     public void measureAnswerRequest(Request answerRequest){
@@ -267,6 +294,9 @@ public class Network implements SalutDataCallback{
     }
 
     public void shakingRequestToHost(SalutDevice hostDevice){
+
+        changeState(hostDevice.readableName,SHAKE_REQUEST);
+
         Request shakeRequest = new Request();
         shakeRequest.requestTitle = SHAKE_REQUEST;
         shakeRequest.requestPeerId = this.androidId;
@@ -291,15 +321,21 @@ public class Network implements SalutDataCallback{
             public void call() {
                 Log.e(TAG, "Oh no! Shake request failed to send.");
             }
+
         });
+
     }
 
     //Decide to accept or reject shake request here
     public void answerToShake(Request shakeRequest){
-        if(true)
+        if(true) {
+            changeState(shakeRequest.requestPeerId,ACC_SHAKE_REQUEST);
             sendAcceptShakeRequest(shakeRequest);
-        else
+        }
+        else {
+            changeState(shakeRequest.requestPeerId,REJ_SHAKE_REQUEST);
             sendRejectShakeRequest(shakeRequest);
+        }
     }
 
 
@@ -382,6 +418,7 @@ public class Network implements SalutDataCallback{
     }
     public void shutdownNetwork(){
         Log.d("END","STOP Host or Client.");
+        stateDevices.clear();
         if(network.isRunningAsHost)
             network.stopNetworkService(false);
         if(network.isDiscovering)
