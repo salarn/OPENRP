@@ -26,6 +26,7 @@ public class MainActivity extends AppCompatActivity{
             network.startAsClient();
 
         /////////// DATABASE
+
         databaseHandler = new DatabaseHandler(this);
         /*
         // Inserting CacheRequest
