@@ -2,6 +2,7 @@ package com.example.salar.openrp;
 
 import android.provider.Settings.Secure;
 import android.util.Log;
+import android.util.Pair;
 import android.widget.Toast;
 
 import com.bluelinelabs.logansquare.LoganSquare;
@@ -17,7 +18,6 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
-import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -42,13 +42,14 @@ public class Network implements SalutDataCallback{
     public Salut network;
     public MainActivity mainActivity;
     public String androidId;
-    public Map<String , String> stateDevices;
+    public Map<Pair<String, Long>, String> stateDevices;
+    public Pair<String,Long> pair;
 
     public Network(MainActivity activity){
         /*Create a data receiver object that will bind the callback
         with some instantiated object from our app. */
         this.mainActivity = activity;
-        stateDevices = new HashMap<String,String>();
+        stateDevices = new HashMap<Pair<String,Long>,String>();
 
        // Toast.makeText(mainActivity.getApplicationContext(),"HELLOOO",Toast.LENGTH_SHORT).show();
         dataReceiver = new SalutDataReceiver(activity, this);
@@ -146,35 +147,37 @@ public class Network implements SalutDataCallback{
             Log.d(TAG , "Parse Message title: "+ messageReceived.requestTitle );
             Log.d(TAG , "Parse Message peer id: "+ messageReceived.requestPeerId);
             Log.d(TAG , "Parse Message detail: "+ messageReceived.requestDetail);
+            Log.d(TAG , "Parse Message start time: "+ messageReceived.requestStartTime);
+            pair = Pair.create(messageReceived.requestPeerId,messageReceived.requestStartTime);
             switch (messageReceived.requestTitle){
                 case SHAKE_REQUEST: // As Host
                     answerToShake(messageReceived);
                     break;
                 case ACC_SHAKE_REQUEST: // As Client
-                    if(stateDevices.containsKey(messageReceived.requestPeerId) == true &&
-                            stateDevices.get(messageReceived.requestPeerId).equals(SHAKE_REQUEST)) {
-                        changeState(messageReceived.requestPeerId,TASK_REQUEST);
+                    if(stateDevices.containsKey(pair) &&
+                            stateDevices.get(pair).equals(SHAKE_REQUEST)) {
+                        changeState(pair,TASK_REQUEST);
                         sendingTaskRequest(messageReceived);
                     }
                     break;
                 case REJ_SHAKE_REQUEST: // As Client
-                    if(stateDevices.containsKey(messageReceived.requestPeerId) == true &&
-                            stateDevices.get(messageReceived.requestPeerId).equals(SHAKE_REQUEST)) {
-                        changeState(messageReceived.requestPeerId,FINISH_REQUEST);
+                    if(stateDevices.containsKey(pair)  &&
+                            stateDevices.get(pair).equals(SHAKE_REQUEST)) {
+                        changeState(pair,FINISH_REQUEST);
                         evaluateReputationRejectShakeRequest(messageReceived);
                     }
                     break;
                 case TASK_REQUEST: // As Host
-                    if(stateDevices.containsKey(messageReceived.requestPeerId) == true &&
-                            stateDevices.get(messageReceived.requestPeerId).equals(ACC_SHAKE_REQUEST)) {
-                        changeState(messageReceived.requestPeerId,FINISH_REQUEST);
+                    if(stateDevices.containsKey(pair) &&
+                            stateDevices.get(pair).equals(ACC_SHAKE_REQUEST)) {
+                        changeState(pair,FINISH_REQUEST);
                         processTaskRequest(messageReceived);
                     }
                     break;
                 case ANS_REQUEST: // As Client
-                    if(stateDevices.containsKey(messageReceived.requestPeerId) == true &&
-                            stateDevices.get(messageReceived.requestPeerId).equals(TASK_REQUEST)) {
-                        changeState(messageReceived.requestPeerId,FINISH_REQUEST);
+                    if(stateDevices.containsKey(pair) &&
+                            stateDevices.get(pair).equals(TASK_REQUEST)) {
+                        changeState(pair,FINISH_REQUEST);
                         measureAnswerRequest(messageReceived);
                     }
                     break;
@@ -187,10 +190,10 @@ public class Network implements SalutDataCallback{
 
     }
 
-    public void changeState(String deviceId, String to){
-        if(stateDevices.containsKey(deviceId))
-            stateDevices.remove(deviceId);
-        stateDevices.put(deviceId,to);
+    public void changeState(Pair<String,Long> key, String to){
+        if(stateDevices.containsKey(key))
+            stateDevices.remove(key);
+        stateDevices.put(key,to);
     }
 
     public void measureAnswerRequest(Request answerRequest){
@@ -210,7 +213,7 @@ public class Network implements SalutDataCallback{
         DatabaseHandler databaseHandler = this.mainActivity.databaseHandler;
 
         databaseHandler.addCacheRequest(new CacheRequest(answerRequest.requestPeerId,
-                new Timestamp(System.currentTimeMillis()), (float)0.9 ));
+                answerRequest.requestStartTime, System.currentTimeMillis(), (float)0.9 ));
         //Finish Requests with correct answer.
         Log.d(TAG,"Finish Requests with correct answer.");
         Toast.makeText(mainActivity.getApplicationContext(), "Finish Requests with correct answer.", Toast.LENGTH_SHORT).show();
@@ -219,7 +222,7 @@ public class Network implements SalutDataCallback{
         DatabaseHandler databaseHandler = this.mainActivity.databaseHandler;
 
         databaseHandler.addCacheRequest(new CacheRequest(answerRequest.requestPeerId,
-                new Timestamp(System.currentTimeMillis()), (float)0.3 ));
+                answerRequest.requestStartTime, System.currentTimeMillis(), (float)0.3 ));
         //Finish Requests with wrong answer.
         Log.d(TAG,"Finish Requests with wrong answer.");
         Toast.makeText(mainActivity.getApplicationContext(), "Finish Requests with wrong answer.", Toast.LENGTH_SHORT).show();
@@ -235,6 +238,7 @@ public class Network implements SalutDataCallback{
         Request answerRequest = new Request();
         answerRequest.requestTitle = ANS_REQUEST;
         answerRequest.requestPeerId = this.androidId;
+        answerRequest.requestStartTime = taskRequest.requestStartTime;
 
         JSONObject jsonDetail = new JSONObject();
         try {
@@ -263,7 +267,7 @@ public class Network implements SalutDataCallback{
         DatabaseHandler databaseHandler = this.mainActivity.databaseHandler;
 
         databaseHandler.addCacheRequest(new CacheRequest(rejectRequest.requestPeerId,
-                new Timestamp(System.currentTimeMillis()), (float)0.1 ));
+                rejectRequest.requestStartTime, System.currentTimeMillis(), (float)0.1 ));
         //Finish Requests with reject shaking.
         Log.d(TAG,"Finish Requests with reject shaking.");
         Toast.makeText(mainActivity.getApplicationContext(), "Finish Requests with reject shaking.", Toast.LENGTH_SHORT).show();
@@ -274,6 +278,7 @@ public class Network implements SalutDataCallback{
         Request taskRequest = new Request(); // our task is counting object's(String) length.
         taskRequest.requestTitle = TASK_REQUEST;
         taskRequest.requestPeerId = this.androidId;
+        taskRequest.requestStartTime = acceptRequest.requestStartTime;
         JSONObject jsonDetail = new JSONObject();
         try {
             jsonDetail.put("nid",this.androidId);
@@ -295,11 +300,15 @@ public class Network implements SalutDataCallback{
 
     public void shakingRequestToHost(SalutDevice hostDevice){
 
-        changeState(hostDevice.readableName,SHAKE_REQUEST);
+        long currentTime = System.currentTimeMillis();
+        pair = Pair.create(hostDevice.readableName,currentTime);
+        changeState(pair,SHAKE_REQUEST);
+        //startDeadlineTimer()
 
         Request shakeRequest = new Request();
         shakeRequest.requestTitle = SHAKE_REQUEST;
         shakeRequest.requestPeerId = this.androidId;
+        shakeRequest.requestStartTime = currentTime;
 
         JSONObject jsonDetail = new JSONObject();
         try {
@@ -328,12 +337,13 @@ public class Network implements SalutDataCallback{
 
     //Decide to accept or reject shake request here
     public void answerToShake(Request shakeRequest){
+        pair = Pair.create(shakeRequest.requestPeerId,shakeRequest.requestStartTime);
         if(true) {
-            changeState(shakeRequest.requestPeerId,ACC_SHAKE_REQUEST);
+            changeState(pair,ACC_SHAKE_REQUEST);
             sendAcceptShakeRequest(shakeRequest);
         }
         else {
-            changeState(shakeRequest.requestPeerId,REJ_SHAKE_REQUEST);
+            changeState(pair,REJ_SHAKE_REQUEST);
             sendRejectShakeRequest(shakeRequest);
         }
     }
@@ -350,6 +360,7 @@ public class Network implements SalutDataCallback{
         Request acceptShakeRequest = new Request();
         acceptShakeRequest.requestTitle = ACC_SHAKE_REQUEST;
         acceptShakeRequest.requestPeerId = this.androidId;
+        acceptShakeRequest.requestStartTime = shakeRequest.requestStartTime;
 
         JSONObject jsonDetail = new JSONObject();
         try {
@@ -381,6 +392,7 @@ public class Network implements SalutDataCallback{
         Request rejectShakeRequest = new Request();
         rejectShakeRequest.requestTitle = REJ_SHAKE_REQUEST;
         rejectShakeRequest.requestPeerId = this.androidId;
+        rejectShakeRequest.requestStartTime = shakeRequest.requestStartTime;
 
         JSONObject jsonDetail = new JSONObject();
         try {

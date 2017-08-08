@@ -44,7 +44,8 @@ public class MainActivity extends AppCompatActivity{
         List<CacheRequest> cacheRequests = databaseHandler.getAllCacheRequests();
 
         for (CacheRequest cn : cacheRequests) {
-            String log = "Peer_ID: "+cn.getPeer_id()+" ,Time: " + cn.getTime() + " ,Value: " + cn.getValue();
+            String log = "Peer ID: "+cn.getPeer_id()+" ,Start Time: " + cn.getStartTime() +
+                    " ,Finish Time: "+ cn.getFinishTime() +" ,Value: " + cn.getValue();
             // Writing CacheRequest to log
             Log.d("Data", log);
         }

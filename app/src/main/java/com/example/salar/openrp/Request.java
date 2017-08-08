@@ -18,5 +18,8 @@ public class Request {
 
     @JsonField
     public String requestPeerId;
+
+    @JsonField
+    public long requestStartTime;
 }
 

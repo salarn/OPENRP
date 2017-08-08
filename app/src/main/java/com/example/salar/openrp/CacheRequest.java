@@ -1,21 +1,21 @@
 package com.example.salar.openrp;
 
-import java.sql.Timestamp;
-
 /**
  * Created by salar on 8/4/17.
  */
 
 public class CacheRequest {
     private String peer_id;
-    private Timestamp time;
+    private long startTime;
+    private long finishTime;
     private float value;
 
     public CacheRequest(){}
 
-    public CacheRequest(String peer_id, Timestamp time, float value){
+    public CacheRequest(String peer_id,long startTime, long finishTime, float value){
         this.peer_id = peer_id;
-        this.time = time;
+        this.startTime = startTime;
+        this.finishTime = finishTime;
         this.value = value;
     }
 
@@ -23,8 +23,12 @@ public class CacheRequest {
         this.peer_id = peer_id;
     }
 
-    public void setTime(Timestamp time) {
-        this.time = time;
+    public void setStartTime(long startTime) {
+        this.startTime = startTime;
+    }
+
+    public void setFinishTime(long finishTime) {
+        this.finishTime = finishTime;
     }
 
     public void setValue(float value) {
@@ -35,8 +39,12 @@ public class CacheRequest {
         return peer_id;
     }
 
-    public Timestamp getTime() {
-        return time;
+    public long getStartTime() {
+        return startTime;
+    }
+
+    public long getFinishTime(){
+        return finishTime;
     }
 
     public float getValue() {

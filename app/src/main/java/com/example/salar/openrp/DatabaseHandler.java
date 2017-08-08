@@ -6,7 +6,6 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,7 +27,8 @@ public class DatabaseHandler extends SQLiteOpenHelper {
     // Contacts Table Columns names
     private static final String KEY_COUNTER = "counter";
     private static final String KEY_PEER_ID = "peer_id";
-    private static final String KEY_TIME = "time";
+    private static final String KEY_START_TIME = "start_time";
+    private static final String KEY_FINISH_TIME = "finish_time";
     private static final String KEY_VALUE = "value";
 
     public DatabaseHandler(Context context){
@@ -39,7 +39,7 @@ public class DatabaseHandler extends SQLiteOpenHelper {
     public void onCreate(SQLiteDatabase db) {
         String CREATE_CONTACTS_TABLE = "CREATE TABLE " + TABLE_NAME + "("
                 + KEY_COUNTER + " INTEGER PRIMARY KEY," + KEY_PEER_ID + " TEXT,"
-                + KEY_TIME + " TIMESTAMP," + KEY_VALUE + " FLOAT"+ ")";
+                + KEY_START_TIME + " BIGINT,"+ KEY_FINISH_TIME + " BIGINT," + KEY_VALUE + " FLOAT"+ ")";
         db.execSQL(CREATE_CONTACTS_TABLE);
     }
 
@@ -58,7 +58,8 @@ public class DatabaseHandler extends SQLiteOpenHelper {
         ContentValues values = new ContentValues();
 
         values.put(KEY_PEER_ID, rq.getPeer_id()); // CacheRequest Peer ID
-        values.put(KEY_TIME, rq.getTime().toString()); // CacheRequest Time
+        values.put(KEY_START_TIME, rq.getStartTime()); // CacheRequest Start Time
+        values.put(KEY_FINISH_TIME, rq.getFinishTime()); // CacheRequest Finish Time
         values.put(KEY_VALUE, rq.getValue()); // CacheRequest Value
 
         // Inserting Row
@@ -71,13 +72,13 @@ public class DatabaseHandler extends SQLiteOpenHelper {
         SQLiteDatabase db = this.getReadableDatabase();
 
         Cursor cursor = db.query(TABLE_NAME, new String[] { KEY_COUNTER,
-                        KEY_PEER_ID, KEY_TIME, KEY_VALUE }, KEY_COUNTER + "=?",
+                        KEY_PEER_ID, KEY_START_TIME, KEY_FINISH_TIME, KEY_VALUE }, KEY_COUNTER + "=?",
                 new String[] { String.valueOf(id) }, null, null, null, null);
         if (cursor != null)
             cursor.moveToFirst();
 
         CacheRequest cacheRequest = new CacheRequest(cursor.getString(1),
-                Timestamp.valueOf(cursor.getString(2)), Float.parseFloat(cursor.getString(3)));
+                Long.valueOf(cursor.getString(2)), Long.valueOf(cursor.getString(3)), Float.parseFloat(cursor.getString(4)));
         // return cacheRequest
         return cacheRequest;
     }
@@ -96,8 +97,9 @@ public class DatabaseHandler extends SQLiteOpenHelper {
             do {
                 CacheRequest cacheRequest = new CacheRequest();
                 cacheRequest.setPeer_id(cursor.getString(1));
-                cacheRequest.setTime(Timestamp.valueOf(cursor.getString(2)));
-                cacheRequest.setValue(Float.parseFloat(cursor.getString(3)));
+                cacheRequest.setStartTime(Long.valueOf(cursor.getString(2)));
+                cacheRequest.setFinishTime(Long.valueOf(cursor.getString(3)));
+                cacheRequest.setValue(Float.parseFloat(cursor.getString(4)));
                 // Adding cacheRequest to list
                 cacheRequestList.add(cacheRequest);
             } while (cursor.moveToNext());
