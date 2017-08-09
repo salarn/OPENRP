@@ -47,7 +47,17 @@ public class MainActivity extends AppCompatActivity{
             String log = "Peer ID: "+cn.getPeer_id()+" ,Start Time: " + cn.getStartTime() +
                     " ,Finish Time: "+ cn.getFinishTime() +" ,Value: " + cn.getValue();
             // Writing CacheRequest to log
-            Log.d("Data", log);
+            Log.d("OwnData", log);
+        }
+
+        Log.d("Reading: ", "Reading all CacheRecommendation..");
+        List<CacheRecommendation> cacheRecommendations = databaseHandler.getAllCacheRecommendation();
+
+        for (CacheRecommendation cn : cacheRecommendations) {
+            String log = "From_Peer_ID: "+ cn.getFrom_peer_id() +" ,Peer ID: "+cn.getPeer_id()+" ,Start Time: " + cn.getStartTime() +
+                    " ,Finish Time: "+ cn.getFinishTime() +" ,Value: " + cn.getValue();
+            // Writing CacheRequest to log
+            Log.d("OthersData", log);
         }
         ///////////////// DATABASE
     }

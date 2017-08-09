@@ -14,6 +14,7 @@ import com.peak.salut.SalutDataReceiver;
 import com.peak.salut.SalutDevice;
 import com.peak.salut.SalutServiceData;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -21,6 +22,8 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
 
 /**
  * Created by salar on 8/5/17.
@@ -35,6 +38,8 @@ public class Network implements SalutDataCallback{
     public static final String TASK_REQUEST = "task_request";
     public static final String ANS_REQUEST = "answer_request";
     public static final String FINISH_REQUEST = "finish_request";
+    public static final String GIVE_ME_RECOMMENDATION_REQUEST = "give_me_recommendation_request";
+    public static final String MY_RECOMMENDATION_REQUEST = "my_recommendation_request";
     public static final String OBJECT_TASK = "here_should_be_an_object";
 
     public SalutDataReceiver dataReceiver;
@@ -123,6 +128,7 @@ public class Network implements SalutDataCallback{
             public void call() {
                 Toast.makeText(mainActivity.getApplicationContext(), "We're now registered.", Toast.LENGTH_SHORT).show();
                 Log.d(TAG, "We're now registered.");
+                giveMeRecommendations(hostDevice);
                 shakingRequestToHost(hostDevice);
 
             }
@@ -181,6 +187,12 @@ public class Network implements SalutDataCallback{
                         measureAnswerRequest(messageReceived);
                     }
                     break;
+                case GIVE_ME_RECOMMENDATION_REQUEST: // As Host
+                    sendRecommendation(messageReceived);
+                    break;
+                case MY_RECOMMENDATION_REQUEST: // As Client
+                    processRecommendation(messageReceived);
+                    break;
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -204,7 +216,7 @@ public class Network implements SalutDataCallback{
             if(answerFromHost == OBJECT_TASK.length())
                 evaluateReputationWithCorrectAnswer(answerRequest);
             else
-                evaluteReputationWithWrongAnswer(answerRequest);
+                evaluateReputationWithWrongAnswer(answerRequest);
         } catch (JSONException e){
             e.printStackTrace();
         }
@@ -218,7 +230,7 @@ public class Network implements SalutDataCallback{
         Log.d(TAG,"Finish Requests with correct answer.");
         Toast.makeText(mainActivity.getApplicationContext(), "Finish Requests with correct answer.", Toast.LENGTH_SHORT).show();
     }
-    public void evaluteReputationWithWrongAnswer(Request answerRequest){
+    public void evaluateReputationWithWrongAnswer(Request answerRequest){
         DatabaseHandler databaseHandler = this.mainActivity.databaseHandler;
 
         databaseHandler.addCacheRequest(new CacheRequest(answerRequest.requestPeerId,
@@ -303,7 +315,8 @@ public class Network implements SalutDataCallback{
         long currentTime = System.currentTimeMillis();
         pair = Pair.create(hostDevice.readableName,currentTime);
         changeState(pair,SHAKE_REQUEST);
-        //startDeadlineTimer()
+        long expectedDurationTime = 10000;
+        startDeadlineTimer(expectedDurationTime,currentTime,hostDevice.readableName);
 
         Request shakeRequest = new Request();
         shakeRequest.requestTitle = SHAKE_REQUEST;
@@ -333,6 +346,34 @@ public class Network implements SalutDataCallback{
 
         });
 
+    }
+
+    public void startDeadlineTimer(long expectedDurationTime,final long currentTime,final String hostId){
+
+        new Timer().schedule(new TimerTask() {
+            @Override
+            public void run() {
+                // this code will be executed after 3 seconds
+                if(checkFindingDataWithStartTime(currentTime,hostId)){
+                    Log.d(TAG,"Task data was stored successfully, And was checked at deadline moment.");
+                }
+                else{
+                    Log.d(TAG,"Task not finished yet, And deadline time ended.");
+                    pair = Pair.create(hostId,currentTime);
+                    changeState(pair,FINISH_REQUEST);
+                }
+            }
+        }, expectedDurationTime);
+
+    }
+
+    public boolean checkFindingDataWithStartTime(long startTime, String hostId){
+        CacheRequest cacheRequest = this.mainActivity.databaseHandler.getCacheRequestWithStartTime(startTime);
+        if(cacheRequest == null)
+            return false;
+        if(cacheRequest.getPeer_id().equals(hostId))
+            return true;
+        return false;
     }
 
     //Decide to accept or reject shake request here
@@ -414,6 +455,77 @@ public class Network implements SalutDataCallback{
             }
         });
     }
+    // Ask host to give us his recommendations
+    public void giveMeRecommendations(SalutDevice hostDevice){
+        Request giveRecommendation = new Request();
+        giveRecommendation.requestTitle = GIVE_ME_RECOMMENDATION_REQUEST;
+        giveRecommendation.requestPeerId = this.androidId;
+        giveRecommendation.requestStartTime = 0;
+        giveRecommendation.requestDetail = "";
+
+        network.sendToHost(giveRecommendation, new SalutCallback() {
+            @Override
+            public void call() {
+                Log.e(TAG, "Oh no! Applying for recommend data request failed to send.");
+            }
+        });
+    }
+
+    public void processRecommendation(Request recommendationRequest){
+        eraseRecommendationWithId(recommendationRequest.requestPeerId);
+        try {
+            JSONArray recommendationJson = new JSONArray(recommendationRequest.requestDetail);
+            for(int i = 0;i < recommendationJson.length(); i++){
+                CacheRecommendation cacheRecommendation = new CacheRecommendation();
+                cacheRecommendation.setFrom_peer_id(recommendationRequest.requestPeerId);
+                cacheRecommendation.setPeer_id((String) ((JSONObject)recommendationJson.get(i)).get(
+                        DatabaseHandler.KEY_PEER_ID
+                ));
+                cacheRecommendation.setStartTime(Long.valueOf((String)(((JSONObject)recommendationJson.get(i)).get(
+                        DatabaseHandler.KEY_START_TIME
+                ))));
+                cacheRecommendation.setFinishTime(Long.valueOf((String)(((JSONObject)recommendationJson.get(i)).get(
+                        DatabaseHandler.KEY_FINISH_TIME
+                ))));
+                cacheRecommendation.setValue(Float.valueOf((String)( ((JSONObject)recommendationJson.get(i)).get(
+                        DatabaseHandler.KEY_VALUE
+                ))));
+                this.mainActivity.databaseHandler.addCacheRecommendation(cacheRecommendation);
+            }
+        }
+        catch (JSONException e){
+            e.printStackTrace();
+        }
+    }
+
+    public void eraseRecommendationWithId(String id){
+        this.mainActivity.databaseHandler.deleteCacheRecommendation(id);
+    }
+
+    // Sending our Recommendation to client
+
+    public void sendRecommendation(Request recommendationRequest){
+
+        SalutDevice clientDevice = findDeviceWithId(recommendationRequest.requestPeerId);
+        if(clientDevice == null){
+            Log.e(TAG,"Can't find Client, And then can't send our recommendation data.");
+            return;
+        }
+
+        Request ourRecommendation = new Request();
+        ourRecommendation.requestTitle = MY_RECOMMENDATION_REQUEST;
+        ourRecommendation.requestPeerId = this.androidId;
+        ourRecommendation.requestStartTime = 0;
+        ourRecommendation.requestDetail = this.mainActivity.databaseHandler.convertDataTableToJson();
+
+        network.sendToDevice(clientDevice, ourRecommendation, new SalutCallback() {
+            @Override
+            public void call() {
+                Log.e(TAG, "Oh no! Recommendation data failed to send.");
+            }
+        });
+    }
+
     public SalutDevice findDeviceWithId(String peerId){
         if(network.isRunningAsHost) {
             Iterator i$ = network.registeredClients.iterator();
