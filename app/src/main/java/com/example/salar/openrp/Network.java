@@ -24,6 +24,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.Vector;
 
 /**
  * Created by salar on 8/5/17.
@@ -49,12 +50,14 @@ public class Network implements SalutDataCallback{
     public String androidId;
     public Map<Pair<String, Long>, String> stateDevices;
     public Pair<String,Long> pair;
+    public Vector<Timer> timerList;
 
     public Network(MainActivity activity){
         /*Create a data receiver object that will bind the callback
         with some instantiated object from our app. */
         this.mainActivity = activity;
         stateDevices = new HashMap<Pair<String,Long>,String>();
+        timerList = new Vector<Timer>();
 
        // Toast.makeText(mainActivity.getApplicationContext(),"HELLOOO",Toast.LENGTH_SHORT).show();
         dataReceiver = new SalutDataReceiver(activity, this);
@@ -128,7 +131,8 @@ public class Network implements SalutDataCallback{
             public void call() {
                 Toast.makeText(mainActivity.getApplicationContext(), "We're now registered.", Toast.LENGTH_SHORT).show();
                 Log.d(TAG, "We're now registered.");
-                giveMeRecommendations(hostDevice);
+                giveMeRecommendations(hostDevice,
+                        mainActivity.databaseHandler.getLastRecommendationTime(hostDevice.readableName).getLastRecomTime());
                 shakingRequestToHost(hostDevice);
 
             }
@@ -350,7 +354,9 @@ public class Network implements SalutDataCallback{
 
     public void startDeadlineTimer(long expectedDurationTime,final long currentTime,final String hostId){
 
-        new Timer().schedule(new TimerTask() {
+        Timer timer = new Timer();
+        timerList.add(timer);
+        timer.schedule(new TimerTask() {
             @Override
             public void run() {
                 // this code will be executed after 3 seconds
@@ -456,11 +462,11 @@ public class Network implements SalutDataCallback{
         });
     }
     // Ask host to give us his recommendations
-    public void giveMeRecommendations(SalutDevice hostDevice){
+    public void giveMeRecommendations(SalutDevice hostDevice, long fromTime){
         Request giveRecommendation = new Request();
         giveRecommendation.requestTitle = GIVE_ME_RECOMMENDATION_REQUEST;
         giveRecommendation.requestPeerId = this.androidId;
-        giveRecommendation.requestStartTime = 0;
+        giveRecommendation.requestStartTime = fromTime;
         giveRecommendation.requestDetail = "";
 
         network.sendToHost(giveRecommendation, new SalutCallback() {
@@ -472,7 +478,6 @@ public class Network implements SalutDataCallback{
     }
 
     public void processRecommendation(Request recommendationRequest){
-        eraseRecommendationWithId(recommendationRequest.requestPeerId);
         try {
             JSONArray recommendationJson = new JSONArray(recommendationRequest.requestDetail);
             for(int i = 0;i < recommendationJson.length(); i++){
@@ -496,10 +501,12 @@ public class Network implements SalutDataCallback{
         catch (JSONException e){
             e.printStackTrace();
         }
+        changeLastRecommendationTime(recommendationRequest.requestPeerId,recommendationRequest.requestStartTime);
     }
 
-    public void eraseRecommendationWithId(String id){
-        this.mainActivity.databaseHandler.deleteCacheRecommendation(id);
+    public void changeLastRecommendationTime(String deviceId, long to){
+        RecommendationTime rt = new RecommendationTime(deviceId,to);
+        mainActivity.databaseHandler.addRecommendationTime(rt);
     }
 
     // Sending our Recommendation to client
@@ -515,8 +522,9 @@ public class Network implements SalutDataCallback{
         Request ourRecommendation = new Request();
         ourRecommendation.requestTitle = MY_RECOMMENDATION_REQUEST;
         ourRecommendation.requestPeerId = this.androidId;
-        ourRecommendation.requestStartTime = 0;
-        ourRecommendation.requestDetail = this.mainActivity.databaseHandler.convertDataTableToJson();
+        ourRecommendation.requestStartTime = System.currentTimeMillis();
+        ourRecommendation.requestDetail = this.mainActivity.databaseHandler.convertDataTableToJson(
+                recommendationRequest.requestStartTime);
 
         network.sendToDevice(clientDevice, ourRecommendation, new SalutCallback() {
             @Override
@@ -540,9 +548,17 @@ public class Network implements SalutDataCallback{
         }
         return null;
     }
+
+    public void cancelAllTimers(){
+        for(int i = 0;i < timerList.size(); i++)
+            timerList.get(i).cancel();
+    }
+
     public void shutdownNetwork(){
         Log.d("END","STOP Host or Client.");
         stateDevices.clear();
+        cancelAllTimers();
+        timerList.clear();
         if(network.isRunningAsHost)
             network.stopNetworkService(false);
         if(network.isDiscovering)

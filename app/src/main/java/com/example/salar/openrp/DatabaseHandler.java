@@ -31,6 +31,9 @@ public class DatabaseHandler extends SQLiteOpenHelper {
     // Other experience data table name
     private static final String TABLE_OTHER_DATA_NAME = "otherExperienceData";
 
+    // Last Recommendation time table name
+    private static final String TABLE_LAST_RECOM_NAME = "lastRecommendationTime";
+
     // Contacts Table Columns names
     public static final String KEY_COUNTER = "counter";
     public static final String KEY_PEER_ID = "peer_id";
@@ -38,6 +41,7 @@ public class DatabaseHandler extends SQLiteOpenHelper {
     public static final String KEY_FINISH_TIME = "finish_time";
     public static final String KEY_VALUE = "value";
     public static final String KEY_FROM_PEER_ID = "from_peer_id";
+    public static final String KEY_LAST_RECOM_TIME = "last_recom_time";
 
     public DatabaseHandler(Context context){
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -52,8 +56,14 @@ public class DatabaseHandler extends SQLiteOpenHelper {
         String CREATE_OTHER_DATA_TABLE = "CREATE TABLE " + TABLE_OTHER_DATA_NAME + "("
                 + KEY_COUNTER + " INTEGER PRIMARY KEY," + KEY_FROM_PEER_ID + " TEXT," +KEY_PEER_ID + " TEXT,"
                 + KEY_START_TIME + " BIGINT,"+ KEY_FINISH_TIME + " BIGINT," + KEY_VALUE + " FLOAT"+ ")";
+
+        String CREATE_LAST_RECOM_TIME_TABLE = "CREATE TABLE " + TABLE_LAST_RECOM_NAME + "("
+                + KEY_COUNTER + " INTEGER PRIMARY KEY," + KEY_PEER_ID + " TEXT,"
+                + KEY_LAST_RECOM_TIME + " BIGINT" + ")";
+
         db.execSQL(CREATE_OWN_DATA_TABLE);
         db.execSQL(CREATE_OTHER_DATA_TABLE);
+        db.execSQL(CREATE_LAST_RECOM_TIME_TABLE);
     }
 
     @Override
@@ -61,10 +71,12 @@ public class DatabaseHandler extends SQLiteOpenHelper {
         // Drop older table if existed
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_OWN_DATA_NAME);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_OTHER_DATA_NAME);
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_LAST_RECOM_NAME);
 
         // Create tables again
         onCreate(db);
     }
+
     // Adding new CacheRequests
     public void addCacheRequest(CacheRequest rq) {
         SQLiteDatabase db = this.getWritableDatabase();
@@ -153,12 +165,14 @@ public class DatabaseHandler extends SQLiteOpenHelper {
         return cursor.getCount();
     }
 
-    public String convertDataTableToJson(){
+    public String convertDataTableToJson(long fromTime){
         JSONArray jsonArray  = new JSONArray();
 
-        String selectQuery = "SELECT  * FROM " + TABLE_OWN_DATA_NAME;
         SQLiteDatabase db = this.getWritableDatabase();
-        Cursor cursor = db.rawQuery(selectQuery, null);
+
+        Cursor cursor = db.query(TABLE_OWN_DATA_NAME, new String[] { KEY_COUNTER,
+                        KEY_PEER_ID, KEY_START_TIME, KEY_FINISH_TIME, KEY_VALUE }, KEY_FINISH_TIME + ">=?",
+                new String[] { String.valueOf(fromTime) }, null, null, null, null);
 
         // looping through all rows and adding to list
         if (cursor.moveToFirst()) {
@@ -230,8 +244,71 @@ public class DatabaseHandler extends SQLiteOpenHelper {
             } while (cursor.moveToNext());
         }
         cursor.close();
-        // return contact list
+        // return CacheRecommendation list
         return cacheRecommendationList;
+    }
+
+    //////////////
+
+    // Adding new RecommendationTime
+    public void addRecommendationTime(RecommendationTime rt){
+        SQLiteDatabase db = this.getWritableDatabase();
+
+        db.delete(TABLE_LAST_RECOM_NAME, KEY_PEER_ID + " = ?",
+                new String[] { rt.getPeer_id() });
+
+        ContentValues values = new ContentValues();
+
+        values.put(KEY_PEER_ID, rt.getPeer_id()); // RecommendationTime Peer ID
+        values.put(KEY_LAST_RECOM_TIME, rt.getLastRecomTime()); // RecommendationTime Last Recommendation Time
+
+        // Inserting Row
+        db.insert(TABLE_LAST_RECOM_NAME, null, values);
+        db.close(); // Closing database connection
+    }
+
+    // Getting Last Recommendation time
+
+    public RecommendationTime getLastRecommendationTime(String id){
+        SQLiteDatabase db = this.getReadableDatabase();
+
+        Cursor cursor = db.query(TABLE_LAST_RECOM_NAME, new String[] { KEY_COUNTER,
+                        KEY_PEER_ID, KEY_LAST_RECOM_TIME }, KEY_PEER_ID + "=?",
+                new String[] { String.valueOf(id) }, null, null, null, null);
+        if (cursor.moveToFirst()) {
+            RecommendationTime recommendationTime = new RecommendationTime(cursor.getString(1),
+                    Long.valueOf(cursor.getString(2)) );
+            cursor.close();
+            return recommendationTime;
+        }
+        else {
+            RecommendationTime recommendationTime = new RecommendationTime(id , 0);
+            cursor.close();
+            return recommendationTime;
+        }
+    }
+
+    // Getting All RecommendationTimes
+    public List<RecommendationTime> getAllRecommendationTimes() {
+        List<RecommendationTime> recommendationTimeList = new ArrayList<RecommendationTime>();
+        // Select All Query
+        String selectQuery = "SELECT  * FROM " + TABLE_LAST_RECOM_NAME;
+
+        SQLiteDatabase db = this.getWritableDatabase();
+        Cursor cursor = db.rawQuery(selectQuery, null);
+
+        // looping through all rows and adding to list
+        if (cursor.moveToFirst()) {
+            do {
+                RecommendationTime recommendationTime = new RecommendationTime(cursor.getString(1),
+                        Long.valueOf(cursor.getString(2)));
+                // Adding RecommendationTime to list
+                recommendationTimeList.add(recommendationTime);
+            } while (cursor.moveToNext());
+        }
+        cursor.close();
+        // return RecommendationTime list
+        return recommendationTimeList;
     }
 
 }

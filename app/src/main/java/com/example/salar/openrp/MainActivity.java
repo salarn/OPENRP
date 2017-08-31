@@ -59,6 +59,15 @@ public class MainActivity extends AppCompatActivity{
             // Writing CacheRequest to log
             Log.d("OthersData", log);
         }
+
+        Log.d("Reading: ", "Reading all RecommendationTime..");
+        List<RecommendationTime> recommendationTimes = databaseHandler.getAllRecommendationTimes();
+
+        for (RecommendationTime cn : recommendationTimes) {
+            String log = "Peer ID: "+cn.getPeer_id()+" ,LastRecom Time: " + cn.getLastRecomTime() ;
+            // Writing CacheRequest to log
+            Log.d("OthersData", log);
+        }
         ///////////////// DATABASE
     }
 
