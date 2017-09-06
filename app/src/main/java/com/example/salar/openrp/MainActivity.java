@@ -1,17 +1,27 @@
 package com.example.salar.openrp;
 
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
+import android.view.View;
+import android.widget.Button;
+import android.widget.Toast;
+
+import com.example.salar.openrp.ui.DeviceListFragment;
 
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity{
 
     public Network network;
-    public boolean isHost = false;
+    public boolean isHost = true;
     public DatabaseHandler databaseHandler;
+    public Button button;
+    public DeviceListFragment fragmentList;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -19,11 +29,29 @@ public class MainActivity extends AppCompatActivity{
 
         setContentView(R.layout.activity_main);
 
-        network = new Network(this);
-        if(this.isHost)
-            network.startAsHost();
-        else
-            network.startAsClient();
+        this.startNetwork();
+
+        /////////// UI
+
+        setThisDeviceInfo();
+
+        button = (Button) findViewById(R.id.btn_switch);
+        setButtonText();
+        button.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                network.shutdownNetwork();
+                changeIsHost();
+                Handler handler = new Handler();
+                handler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        startNetwork();
+                        setButtonText();
+                        setThisDeviceInfo();
+                    }
+                }, 500);
+            }
+        });
 
         /////////// DATABASE
 
@@ -71,20 +99,63 @@ public class MainActivity extends AppCompatActivity{
         ///////////////// DATABASE
     }
 
+    public void startNetwork(){
+        network = new Network(this);
+        if(isHost)
+            network.startAsHost();
+        else
+            network.startAsClient();
+    }
+    public void changeIsHost(){
+        isHost = !isHost;
+    }
+    public void setButtonText(){
+        button = (Button) findViewById(R.id.btn_switch);
+        button.setText(isHost?"Change to Client":"Change to Server");
+    }
+    public void setThisDeviceInfo(){
+        fragmentList = (DeviceListFragment) getFragmentManager().findFragmentById(R.id.frag_list);
+        if(fragmentList != null && network.network != null)
+            fragmentList.updateThisDevice(network.network.thisDevice,isHost);
+    }
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        //getMenuInflater().inflate(R.menu.menu_base, menu);
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.action_items, menu);
+        menu.getItem(0).setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM | MenuItem.SHOW_AS_ACTION_WITH_TEXT);
         return true;
+    }
+    /**
+     * Peer discover button
+     */
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.atn_direct_discover:
+                if (!network.network.isWiFiEnabled(getApplicationContext())) {
+                    // If p2p not enabled try to connect as a legacy device
+                    Toast.makeText(getApplicationContext(), R.string.p2p_off_warning, Toast.LENGTH_SHORT).show();
+                    return true;
+                }
+                if (isHost){
+                    Toast.makeText(getApplicationContext(),"Your device is Server, change it to Client.", Toast.LENGTH_SHORT).show();
+                    return true;
+                }
+                final DeviceListFragment fragment = (DeviceListFragment) getFragmentManager().findFragmentById(
+                        R.id.frag_list);
+                fragment.onInitiateDiscovery();
+                Toast.makeText(getApplicationContext(), "Discovery Initiated", Toast.LENGTH_SHORT).show();
+                network.discoverServices();
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
     }
     @Override
     public void onRestart(){
         super.onRestart();
-        network = new Network(this);
-        if(this.isHost)
-            network.startAsHost();
-        else
-            network.startAsClient();
+        this.startNetwork();
     }
     @Override
     public void onStop() {

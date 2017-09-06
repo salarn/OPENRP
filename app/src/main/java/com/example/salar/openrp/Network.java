@@ -6,6 +6,7 @@ import android.util.Pair;
 import android.widget.Toast;
 
 import com.bluelinelabs.logansquare.LoganSquare;
+import com.example.salar.openrp.ui.DeviceListFragment;
 import com.peak.salut.Callbacks.SalutCallback;
 import com.peak.salut.Callbacks.SalutDataCallback;
 import com.peak.salut.Callbacks.SalutDeviceCallback;
@@ -45,7 +46,7 @@ public class Network implements SalutDataCallback{
 
     public SalutDataReceiver dataReceiver;
     public SalutServiceData serviceData;
-    public Salut network;
+    public Salut network = null;
     public MainActivity mainActivity;
     public String androidId;
     public Map<Pair<String, Long>, String> stateDevices;
@@ -83,7 +84,7 @@ public class Network implements SalutDataCallback{
     }
     public void startAsClient(){
         //Client
-        discoverServices();
+        //discoverServices();
     }
 
     private void setupNetwork()
@@ -104,19 +105,31 @@ public class Network implements SalutDataCallback{
         }
     }
 
-    private void discoverServices()
+    public void discoverServices()
     {
         if(!network.isRunningAsHost && !network.isDiscovering)
         {
-            network.discoverNetworkServices(new SalutCallback()
+            network.discoverWithTimeout(new SalutCallback()
             {
                 @Override
                 public void call() {
-                    Toast.makeText(mainActivity.getApplicationContext(), "Device: " + network.foundDevices.get(0).readableName + " found.", Toast.LENGTH_SHORT).show();
-                    Log.d(TAG, "Device: " + network.foundDevices.get(0).readableName + " found.");
-                    connectingToDevice(network.foundDevices.get(0));
+                    Toast.makeText(mainActivity.getApplicationContext(), network.foundDevices.size() + " Devices found.", Toast.LENGTH_SHORT).show();
+                    Log.d(TAG, network.foundDevices.size() + " Devices found.");
+                    final DeviceListFragment fragment = (DeviceListFragment) mainActivity.getFragmentManager().
+                            findFragmentById(R.id.frag_list);
+                    fragment.onPeersAvailable(network.foundDevices);
+                    //connectingToDevice(network.foundDevices.get(0));
                 }
-            }, false);
+            }, new SalutCallback() {
+                @Override
+                public void call() {
+                    Toast.makeText(mainActivity.getApplicationContext(), "We didn't find any server.", Toast.LENGTH_SHORT).show();
+                    final DeviceListFragment fragment = (DeviceListFragment) mainActivity.getFragmentManager().
+                            findFragmentById(R.id.frag_list);
+                    fragment.onPeersAvailable(network.foundDevices);
+                    Log.d(TAG, "We didn't find any server.");
+                }
+            }, 2000);
 
         }
         else
