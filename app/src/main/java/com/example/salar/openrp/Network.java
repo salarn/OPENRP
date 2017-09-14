@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.Vector;
@@ -84,7 +85,7 @@ public class Network implements SalutDataCallback{
     }
     public void startAsClient(){
         //Client
-        //discoverServices();
+        //Log.d("ClientLog",String.valueOf(network.isConnectedToAnotherDevice));
     }
 
     private void setupNetwork()
@@ -109,6 +110,7 @@ public class Network implements SalutDataCallback{
     {
         if(!network.isRunningAsHost && !network.isDiscovering)
         {
+            Log.d("BUGTEST","1");
             network.discoverWithTimeout(new SalutCallback()
             {
                 @Override
@@ -134,18 +136,29 @@ public class Network implements SalutDataCallback{
         }
         else
         {
+            Log.d("BUGTEST","2");
             network.stopServiceDiscovery(true);
         }
     }
 
-    private void connectingToDevice(final SalutDevice hostDevice){
+    public void connectingToDevice(final SalutDevice hostDevice){
+        if(network.isConnectedToAnotherDevice){
+            if(network.registeredHost.readableName.equals(hostDevice.readableName)){
+                shakingRequestToHost(hostDevice);
+            }
+            else{
+                Toast.makeText(mainActivity.getApplicationContext(), "Unregister at first", Toast.LENGTH_SHORT).show();
+                Log.d(TAG, "Unregister at first");
+            }
+            return;
+        }
         network.registerWithHost(hostDevice, new SalutCallback() {
             @Override
             public void call() {
                 Toast.makeText(mainActivity.getApplicationContext(), "We're now registered.", Toast.LENGTH_SHORT).show();
                 Log.d(TAG, "We're now registered.");
-                giveMeRecommendations(hostDevice,
-                        mainActivity.databaseHandler.getLastRecommendationTime(hostDevice.readableName).getLastRecomTime());
+//                giveMeRecommendations(hostDevice,
+//                        mainActivity.databaseHandler.getLastRecommendationTime(hostDevice.readableName).getLastRecomTime());
                 shakingRequestToHost(hostDevice);
 
             }
@@ -398,7 +411,8 @@ public class Network implements SalutDataCallback{
     //Decide to accept or reject shake request here
     public void answerToShake(Request shakeRequest){
         pair = Pair.create(shakeRequest.requestPeerId,shakeRequest.requestStartTime);
-        if(true) {
+        Random random = new Random();
+        if(random.nextInt(2) == 1) {
             changeState(pair,ACC_SHAKE_REQUEST);
             sendAcceptShakeRequest(shakeRequest);
         }
@@ -461,7 +475,7 @@ public class Network implements SalutDataCallback{
             jsonDetail.put("aid","2");
             JSONObject ans = new JSONObject();
             ans.put("title","NO");
-            ans.put("reason","Here should be a reason");
+            ans.put("reason","You are bad luck");
             jsonDetail.put("ans",ans);
             rejectShakeRequest.requestDetail = jsonDetail.toString();
         } catch (JSONException e) {

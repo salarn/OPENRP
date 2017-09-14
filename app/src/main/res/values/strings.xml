@@ -9,7 +9,7 @@
     <string name="yes">yes</string>
     <string name="no">no</string>
     <string name="client_text">This device will act as a client. Click on Gallery button to pick a local(stored) file</string>
-    <string name="empty_message">No devices found. Turn on P2P and perform discovery from the Action Bar</string>
+    <string name="empty_message">No devices found.</string>
     <string name="p2p_off_warning">Enable P2P from action bar button above or system settings</string>
     <string name="group_owner_text">"Am I the Group Owner? "</string>
     <string name="label_me">ME</string>
@@ -21,4 +21,6 @@
     <string name="label_cancel">Cancel</string>
     <string name="label_ssid">Ssid</string>
     <string name="group_chat">Group Chat</string>
+    <string name="register">Register</string>
+    <string name="unregister">Unregister</string>
 </resources>

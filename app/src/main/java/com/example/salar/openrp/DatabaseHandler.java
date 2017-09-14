@@ -94,12 +94,12 @@ public class DatabaseHandler extends SQLiteOpenHelper {
     }
 
     // Getting single CacheRequest
-    public CacheRequest getCacheRequestWithId(int id) {
+    public CacheRequest getCacheRequestWithCounter(int counter) {
         SQLiteDatabase db = this.getReadableDatabase();
 
         Cursor cursor = db.query(TABLE_OWN_DATA_NAME, new String[] { KEY_COUNTER,
                         KEY_PEER_ID, KEY_START_TIME, KEY_FINISH_TIME, KEY_VALUE }, KEY_COUNTER + "=?",
-                new String[] { String.valueOf(id) }, null, null, null, null);
+                new String[] { String.valueOf(counter) }, null, null, null, null);
         if (cursor != null)
             cursor.moveToFirst();
 
@@ -154,15 +154,118 @@ public class DatabaseHandler extends SQLiteOpenHelper {
         return cacheRequestList;
     }
 
+    // Getting Reputation of device with own CacheRequests
+    // With formula 1000*Zigma(1/(timeNow-timeEntry)*value)
+    public float getOwnReputation(String peerId, long timeNow) {
+
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.query(TABLE_OWN_DATA_NAME, new String[] { KEY_COUNTER,
+                        KEY_PEER_ID, KEY_START_TIME, KEY_FINISH_TIME, KEY_VALUE }, KEY_PEER_ID + "=?",
+                new String[] { String.valueOf(peerId) }, null, null, null, null);
+        float zigma = (float) 0.0;
+        // looping through all founded rows
+        if (cursor.moveToFirst()) {
+            do {
+                long timeEntry = Long.valueOf(cursor.getString(3));
+                float value = Float.parseFloat(cursor.getString(4));
+                zigma += value/((float)(timeNow-timeEntry));
+            } while (cursor.moveToNext());
+        }
+        cursor.close();
+        // return zigma*1000
+        zigma *= (float)1000.0;
+        return zigma;
+    }
+
+
+    // Getting Reputation of device with recommendation CacheRequests
+    // With formula 1000*Zigma(1/(timeNow-timeEntry)*value)
+    public float getDeviceRecommendReputation(String peerId,long timeNow){
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.query(TABLE_OTHER_DATA_NAME, new String[] { KEY_COUNTER,
+                        KEY_FROM_PEER_ID, KEY_PEER_ID, KEY_START_TIME, KEY_FINISH_TIME, KEY_VALUE }, KEY_PEER_ID + "=?",
+                new String[] { String.valueOf(peerId) }, null, null, null, null);
+        float zigma = (float) 0.0;
+        // looping through all founded rows
+        if (cursor.moveToFirst()) {
+            do {
+                long timeEntry = Long.valueOf(cursor.getString(4));
+                float value = Float.parseFloat(cursor.getString(5));
+                zigma += value/((float)(timeNow-timeEntry));
+            } while (cursor.moveToNext());
+        }
+        cursor.close();
+        // return zigma*1000
+        zigma *= (float)1000.0;
+        return zigma;
+    }
+
+    // Getting average time interaction of specific device
+    public float getAverageTime(String peerId) {
+
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.query(TABLE_OWN_DATA_NAME, new String[] { KEY_COUNTER,
+                        KEY_PEER_ID, KEY_START_TIME, KEY_FINISH_TIME, KEY_VALUE }, KEY_PEER_ID + "=?",
+                new String[] { String.valueOf(peerId) }, null, null, null, null);
+        long zigma = (long) 0;
+        // looping through all founded rows
+        if (cursor.moveToFirst()) {
+            do {
+                long startTime = Long.valueOf(cursor.getString(2));
+                long finishTime = Long.valueOf(cursor.getString(3));
+                zigma += finishTime-startTime;
+            } while (cursor.moveToNext());
+        }
+        // return zigma/cursorSize
+        float ans = (float)0.0;
+        if(cursor.getCount() != 0)
+            ans = (float)(zigma)/(float)(cursor.getCount());
+        cursor.close();
+        return ans;
+    }
+
+    // Getting number of cacheRequests of specific device
+    public int getNumberOfInteractions(String peerId) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.query(TABLE_OWN_DATA_NAME, new String[] { KEY_COUNTER,
+                        KEY_PEER_ID, KEY_START_TIME, KEY_FINISH_TIME, KEY_VALUE }, KEY_PEER_ID + "=?",
+                new String[] { String.valueOf(peerId) }, null, null, null, null);
+        int answer = cursor.getCount();
+        cursor.close();
+
+        // return count
+        return answer;
+    }
+
+    // Getting last time interaction with specific device
+    public long getLastTimeInteraction(String peerId){
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.query(TABLE_OWN_DATA_NAME, new String[] { KEY_COUNTER,
+                        KEY_PEER_ID, KEY_START_TIME, KEY_FINISH_TIME, KEY_VALUE }, KEY_PEER_ID + "=?",
+                new String[] { String.valueOf(peerId) }, null, null, null, null);
+        long lastTime = (long) 0;
+        // looping through all founded rows
+        if (cursor.moveToFirst()) {
+            do {
+                long finishTime = Long.valueOf(cursor.getString(3));
+                if(lastTime < finishTime)
+                    lastTime = finishTime;
+            } while (cursor.moveToNext());
+        }
+        cursor.close();
+        return lastTime;
+    }
+
     // Getting CacheRequests Count
     public int getCacheRequestsCount() {
         String countQuery = "SELECT  * FROM " + TABLE_OWN_DATA_NAME;
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor cursor = db.rawQuery(countQuery, null);
+        int answer = cursor.getCount();
         cursor.close();
 
         // return count
-        return cursor.getCount();
+        return answer;
     }
 
     public String convertDataTableToJson(long fromTime){

@@ -17,7 +17,7 @@
     <fragment
         android:id="@+id/frag_list"
         android:layout_width="match_parent"
-        android:layout_height="164dp"
+        android:layout_height="match_parent"
         class="com.example.salar.openrp.ui.DeviceListFragment" >
     </fragment>
     <!--<fragment-->

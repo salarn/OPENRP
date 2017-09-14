@@ -12,6 +12,7 @@ import android.widget.Button;
 import android.widget.Toast;
 
 import com.example.salar.openrp.ui.DeviceListFragment;
+import com.peak.salut.Callbacks.SalutCallback;
 
 import java.util.List;
 
@@ -22,6 +23,7 @@ public class MainActivity extends AppCompatActivity{
     public DatabaseHandler databaseHandler;
     public Button button;
     public DeviceListFragment fragmentList;
+    public long lastServerSearchTime = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,6 +50,7 @@ public class MainActivity extends AppCompatActivity{
                         startNetwork();
                         setButtonText();
                         setThisDeviceInfo();
+                        updateFragmentList();
                     }
                 }, 500);
             }
@@ -118,6 +121,11 @@ public class MainActivity extends AppCompatActivity{
         if(fragmentList != null && network.network != null)
             fragmentList.updateThisDevice(network.network.thisDevice,isHost);
     }
+    public void updateFragmentList(){
+        fragmentList = (DeviceListFragment) getFragmentManager().findFragmentById(R.id.frag_list);
+        if(fragmentList != null && network.network != null)
+            fragmentList.clearPeers();
+    }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -133,24 +141,45 @@ public class MainActivity extends AppCompatActivity{
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
             case R.id.atn_direct_discover:
-                if (!network.network.isWiFiEnabled(getApplicationContext())) {
-                    // If p2p not enabled try to connect as a legacy device
-                    Toast.makeText(getApplicationContext(), R.string.p2p_off_warning, Toast.LENGTH_SHORT).show();
-                    return true;
-                }
-                if (isHost){
-                    Toast.makeText(getApplicationContext(),"Your device is Server, change it to Client.", Toast.LENGTH_SHORT).show();
-                    return true;
-                }
+                discoverServers();
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    }
+    public boolean discoverServers(){
+        if (!network.network.isWiFiEnabled(getApplicationContext())) {
+            // If p2p not enabled try to connect as a legacy device
+            Toast.makeText(getApplicationContext(), R.string.p2p_off_warning, Toast.LENGTH_SHORT).show();
+            return true;
+        }
+        if (isHost){
+            Toast.makeText(getApplicationContext(),"Your device is Server, change it to Client.", Toast.LENGTH_SHORT).show();
+            return true;
+        }
+        network.network.unregisterClient(new SalutCallback() {
+            @Override
+            public void call() {
+                Log.d("UNREG","YES");
+                lastServerSearchTime = System.currentTimeMillis();
                 final DeviceListFragment fragment = (DeviceListFragment) getFragmentManager().findFragmentById(
                         R.id.frag_list);
                 fragment.onInitiateDiscovery();
                 Toast.makeText(getApplicationContext(), "Discovery Initiated", Toast.LENGTH_SHORT).show();
-                network.discoverServices();
-                return true;
-            default:
-                return super.onOptionsItemSelected(item);
-        }
+                Handler handler = new Handler();
+                handler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        network.discoverServices();
+                    }
+                }, 2000);
+            }
+        } , new SalutCallback() {
+            @Override
+            public void call() {
+                Log.d("UNREG","NO");
+            }
+        }, false);
+        return true;
     }
     @Override
     public void onRestart(){
